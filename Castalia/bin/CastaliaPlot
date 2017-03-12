@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 # ****************************************************************************
 # *  Copyright: National ICT Australia,  2009 - 2010                         *
 # *  Developed at the ATP lab, Networked Systems research theme              *
@@ -13,9 +13,9 @@
 
 import os, sys, commands, getopt, re
 from optparse import OptionParser
-			
+
 styles = ["linespoints","histogram","stacked"]
-col_sh = {	"b":"blue", 			"lb":"light-blue", 		"g":"green", 		"lg":"light-green", 
+col_sh = {	"b":"blue", 			"lb":"light-blue", 		"g":"green", 		"lg":"light-green",
 			"r":"red", 				"o":"orange", 			"y":"yellow", 		"br":"brown",
 			"c":"cyan",				"db":"dark-blue",		"dg":"dark-green",	"m":"magenta",
 			"lm":"light-magenta", 	"dm":"dark-magenta",	"t":"turquoise",	"v":"violet",
@@ -56,11 +56,11 @@ class Table():
 		while (row >= len(self.data)):
 			self.data.append([])
 		self.data[row].append(value)
-		
+
 # extract common prefix from a list of row names where
 # each name is further split as a comma separated list of labels
 # returns 3 things: list of short names (e.g. x-axis tics)
-# short common part (e.g. x-axis name), and a list of complete 
+# short common part (e.g. x-axis name), and a list of complete
 # common labels (if found) which will go to the graph title
 def extract_common(llist):
 	common_l = []
@@ -69,11 +69,11 @@ def extract_common(llist):
 	raw = []
 	raw_extra = []
 	raw_result = []
-	maxlen = 0	
-	
+	maxlen = 0
+
 	for l in llist:
 		l = l.split(",")
-		if maxlen == 0: 
+		if maxlen == 0:
 			maxlen = len(l)
 			for i in l: raw.append([i])
 		elif maxlen != len(l):
@@ -87,7 +87,7 @@ def extract_common(llist):
 		elif "=" in common:
 			common_l.append(common.split("=",1)[0])
 			if len(result) == 0:
-				for i in l: 
+				for i in l:
 					result.append(i.split("=",1)[1])
 			else:
 				for i in range(len(l)):
@@ -99,7 +99,7 @@ def extract_common(llist):
 		else:
 			for i in range(len(l)):
 				result[i] = result[i] + "," + l[i]
-	
+
 	if len(result):
 		return result,",".join(common_l),common_t
 	else:
@@ -124,7 +124,7 @@ def reorder(list):
 	return result
 
 # small function to remove spaces from list elements
-# remove empty elements, and remove any quotes (") 
+# remove empty elements, and remove any quotes (")
 # because gnuplot will get confused by them
 def cleanup(list):
 	result = []
@@ -183,7 +183,7 @@ if options.colors and options.colors == '?':
 
 if not len(lines):
 	quit("CastaliaPlot: ERROR nothing to plot")
-	
+
 if options.style not in styles:
 	quit("CastaliaPlot: ERROR unknown style, supported values: " + ", ".join(styles))
 
@@ -197,12 +197,12 @@ fulltitle = ""			# full title of the table, used for reference when multiple tab
 xtitle = ""				# title of x-axis
 xlabels = []			# labels (or tics) of x-axis
 labels = []				# labels (names) of datasets
-datasets = 0			# number of datasets 
-table_main = Table()	# main table to hold graph data 
+datasets = 0			# number of datasets
+table_main = Table()	# main table to hold graph data
 ci = 0					# confidence interval flag, indicates column in main thable where confidence intervals start
 vi = 0					# variable interval flag, indicates column in main thable where variable intervals start
 table_all = {}			# table with all data (corresponds to --all flag of CastaliaResults)
-plot_all = -1			# plot_all flag and variable to indicate plot_all progress 
+plot_all = -1			# plot_all flag and variable to indicate plot_all progress
 skip_one_line = 0		# flag to skip a line of input
 
 for line in lines:
@@ -232,7 +232,7 @@ for line in lines:
 	elif plot_all == -1:
 		if ci == 0 and vi == 0:
 			if len(data) > len(xlabels): labels.append(data.pop(0).strip())
-			else: labels.append("row " + str(datasets))			
+			else: labels.append("row " + str(datasets))
 		else:
 			if len(data) > len(xlabels): data.pop(0)
 		data = reorder(data)
@@ -259,22 +259,22 @@ for line in lines:
 		n = int(n)
 		if l == "seed": l = labels[plot_all]
 		if labels[plot_all] != l: plot_all = plot_all + 1
-		if labels[plot_all] != l: 
+		if labels[plot_all] != l:
 			print "CastaliaPlot: WARNING unexpected label in the table '" + l + "'"
 			plot_all = -1
 			break
-		if options.invert:		
-			if plot_all not in table_all: 
+		if options.invert:
+			if plot_all not in table_all:
 				table_all[plot_all] = [ data ]
-			else: 
+			else:
 				table_all[plot_all].append(data)
 		else:
 			for i in range(len(data)):
 				if i not in table_all: table_all[i] = []
 				t = table_all[i]
-				if n >= len(t): 
+				if n >= len(t):
 					t.append([data[i]])
-				else: 
+				else:
 					t[n].append(data[i])
 
 labels,ltitle,extra = extract_common(labels)
@@ -294,7 +294,7 @@ if not len(xlabels):
 	quit("CastaliaPlot: ERROR nothing to plot")
 
 if len(extratitle):
-	title = title + " (" + ",".join(extratitle) + ")" 
+	title = title + " (" + ",".join(extratitle) + ")"
 
 fname = "data" + str(os.getpid()) + ".dat"
 fr = open(fname,"w")
@@ -309,9 +309,9 @@ if options.debug:
 
 xtics_add = []
 for x in range(len(xlabels)):
-	xtics_add.append('"' + xlabels[x] + '" ' + str(x) + " 0") 
+	xtics_add.append('"' + xlabels[x] + '" ' + str(x) + " 0")
 	myprint(fr, str(x) + " " + " ".join(table_main.data[x]))
-				
+
 if plot_all != -1:
 	if options.style != "linespoints":
 		print "CastaliaPlot: WARNING --all flag of CastaliaResults is only compatible with linespoints style"
@@ -324,12 +324,12 @@ if ci != 0:
 	if options.style != "linespoints":
 		print "CastaliaPlot: WARNING -c flag of CastaliaResults is only compatible with linespoints style"
 		ci = 0
-		
+
 if vi != 0:
 	if options.style != "linespoints":
 		print "CastaliaPlot: WARNING -v flag of CastaliaResults is only compatible with linespoints style"
 		vi = 0
-	
+
 fr.close()
 
 name,ext = options.output.rsplit(".",1)
@@ -353,10 +353,10 @@ if options.grey:
 	myprint(f, "set palette grey")
 else:
 	myprint(f, "set term postscript enhanced color")
-	
+
 myprint(f, "set output \"" + name + "\"")
 if options.title and len(options.title) > 0:
-	myprint(f, "set title \"" + options.title + "\"")	
+	myprint(f, "set title \"" + options.title + "\"")
 else:
 	myprint(f, "set title \"" + title + "\"")
 
@@ -372,13 +372,13 @@ if options.scale or options.ratio:
 	myprint(f, "set size" + scale + ratio)
 
 if options.yrange:
-	if ":" in options.yrange: 
+	if ":" in options.yrange:
 		rmin,rmax = options.yrange.split(":")
 	else:
 		rmin = "0"
 		rmax = options.yrange
 	myprint(f, "set yrange ["+rmin+":"+rmax+"]")
-	
+
 if options.rotate:
 	myprint(f, "set xtics nomirror rotate by -" + str(options.rotate) + " (" + ', '.join(xtics_add) + ")")
 elif len(xtics_add): myprint(f, "set xtics (" + ', '.join(xtics_add) + ")")
@@ -416,7 +416,7 @@ if not options.grey:
 	elif options.style == "linespoints":
 		colors = col_st["default"]
 
-if len(colors):			
+if len(colors):
 	myprint(f, "set style increment user")
 	for i in range(len(colors)):
 		if colors[i] in col_sh:
@@ -449,7 +449,7 @@ if len(plots_ci) or len(plots_all) or len(plots_vi):
 	if len(key): myprint(f, "set key " + key)
 	if not options.yrange: myprint(f, "set yrange [] writeback")
 	myprint(f, "set xrange [] writeback")
-	
+
 if len(plots_all):
 	myprint(f, "set datafile missing '-'")
 	plot_extra = "every ::" + str(len(xlabels)) + " "
@@ -473,7 +473,7 @@ if len(plots_ci):
 if len(plots_ci) or len(plots_all) or len(plots_vi):
 	if not options.yrange: myprint(f, "set yrange restore")
 	myprint(f, "set xrange restore")
-elif len(key): 
+elif len(key):
 	myprint(f, "set key " + key)
 myprint(f, "plot './" + fname + "' " + plot_extra + (", '' " + plot_extra).join(plots))
 

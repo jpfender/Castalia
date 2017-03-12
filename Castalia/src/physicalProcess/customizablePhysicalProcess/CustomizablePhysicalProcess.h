@@ -37,9 +37,6 @@ class CustomizablePhysicalProcess: public CastaliaModule {
  private:
 	/*--- The .ned file's parameters ---*/
 	bool printDebugInfo;
-	int numSources;
-	double k;
-	double a;
 	double sigma;
 	int max_num_snapshots;
 	int inputType;
@@ -49,8 +46,6 @@ class CustomizablePhysicalProcess: public CastaliaModule {
 	sourceSnapshot **sources_snapshots;	// N by M array, where N is numSources and, M is the 
 										// maximum number of source snapshots. A source snapshot 
 										// is a tuple (time, x, y, value)
-	sourceSnapshot *curr_source_state;
-	int *source_index;
 	const char *description;
 	simtime_t time;
 
@@ -58,6 +53,15 @@ class CustomizablePhysicalProcess: public CastaliaModule {
 	double *valuesTable;
 
  protected:
+	/*--- The .ned file's parameters ---*/
+	int numSources;
+	double k;
+	double a;
+
+	/*--- Custom class member variables ---*/
+	int *source_index;
+	sourceSnapshot *curr_source_state;
+
 	virtual void initialize();
 	virtual void handleMessage(cMessage * msg);
 	virtual void finishSpecific();

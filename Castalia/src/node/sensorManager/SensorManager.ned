@@ -12,14 +12,14 @@
 
 package node.sensorManager;
 
-// The sensor node module. Connects to the wireless channel in order to communicate 
-// with other nodes. Connects to psysical processes so it can sample them. 
+// The sensor node module. Connects to the wireless channel in order to communicate
+// with other nodes. Connects to psysical processes so it can sample them.
 // Default values represent temperature sensor
 
 simple SensorManager {
  parameters:
 	bool collectTraceInfo = default (false);
-	int numSensingDevices = default (1);		// how many sensing devices the node has 
+	int numSensingDevices = default (1);		// how many sensing devices the node has
 												// (has to be <= SensorNetwork.numPhysicalProcesses)
 
 	string pwrConsumptionPerDevice = default ("0.02");
@@ -33,21 +33,21 @@ simple SensorManager {
 
 	string devicesBias = default ("0.1");		//If the output signal is not zero when the measured property is zero
 
-	string devicesDrift = default ("");			//If the output signal slowly changes independent of the 
+	string devicesDrift = default ("");			//If the output signal slowly changes independent of the
 												//measured property
-												
+
 	string devicesNoise = default ("0.1");		//random deviation of the signal that varies in time
 
-	string devicesHysterisis = default ("");	//the sensor not instantly follows the change of the property 
-												//being measured and therefore involves the history of the 
+	string devicesHysterisis = default ("");	//the sensor not instantly follows the change of the property
+												//being measured and therefore involves the history of the
 												//measured property
 
 	string devicesSensitivity = default ("0");	//holds the minimum value which can be sensed by each sensing device.
 
-	string devicesResolution = default ("0.001");	//holds the sensing resolution for each device 
-													//(the returned value will always be a multiple of 
+	string devicesResolution = default ("0.001");	//holds the sensing resolution for each device
+													//(the returned value will always be a multiple of
 													//number, given here)
-													
+
 	string devicesSaturation = default ("1000");	//holds the saturation value for each sensing device
 
  gates:

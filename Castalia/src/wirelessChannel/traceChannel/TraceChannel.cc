@@ -32,7 +32,7 @@ void TraceChannel::initialize()
 	traceStep = (double)par("traceStep")/1000.0;
 		
 	nextLine = 0;
-	traceFile.open(par("traceFile"));
+	traceFile.open(par("traceFile").stdstringValue());
 	if (!traceFile.is_open())
 		opp_error("Could not open trace file for reading\n");
 	

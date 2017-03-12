@@ -14,7 +14,7 @@ package node;
 
 import node.mobilityManager;
 
-// The sensor node module. Connects to the wireless channel in order to communicate 
+// The sensor node module. Connects to the wireless channel in order to communicate
 // with other nodes. Connects to psysical processes so it can sample them.
 
 module Node {
@@ -25,10 +25,10 @@ module Node {
 	double zCoor = default (0);
 	double phi = default (0);
 	double theta = default (0);
-	
-	double startupOffset = default (0);							//node startup offset (i.e. delay), in seconds 
+
+	double startupOffset = default (0);							//node startup offset (i.e. delay), in seconds
 	double startupRandomization = default (0.05);				//node startup randomisation, in seconds
-	// Node will become active startupOffset + random(startupRandomization) 
+	// Node will become active startupOffset + random(startupRandomization)
 	// seconds after the start of simulation
 
 	string ApplicationName;										//the name of the implemented Application Module
@@ -39,6 +39,7 @@ module Node {
 	output toPhysicalProcess[];
 	input fromWirelessChannel;
 	input fromPhysicalProcess[];
+	input groundTruthFromPhysicalProcess[];
 
  submodules:
  	MobilityManager: <MobilityManagerName> like node.mobilityManager.iMobilityManager;
@@ -47,9 +48,12 @@ module Node {
 	 gates:
 		fromNodeContainerModule[sizeof(toPhysicalProcess)];
 		toNodeContainerModule[sizeof(toPhysicalProcess)];
-	} 
+	}
 	Communication: node.communication.CommunicationModule;
-	Application: <ApplicationName> like node.application.iApplication;
+	Application: <ApplicationName> like node.application.iApplication {
+		gates:
+			groundTruthFromNodeContainerModule[sizeof(toPhysicalProcess)];
+	}
 
  connections:
 	Communication.toNodeContainerModule --> toWirelessChannel;
@@ -61,6 +65,7 @@ module Node {
 
 	for i = 0..sizeof(toPhysicalProcess) - 1 {
 		fromPhysicalProcess[i] --> SensorManager.fromNodeContainerModule[i];
+		groundTruthFromPhysicalProcess[i] --> Application.groundTruthFromNodeContainerModule[i];
 		SensorManager.toNodeContainerModule[i] --> toPhysicalProcess[i];
 	}
 

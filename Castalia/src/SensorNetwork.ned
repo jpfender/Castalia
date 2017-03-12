@@ -15,7 +15,7 @@ import physicalProcess;
 import node;
 
 network SN {
-	
+
  parameters:
 	int field_x = default (30);			// the length of the deployment field
 	int field_y = default (30);			// the width of the deployment field
@@ -36,20 +36,22 @@ network SN {
 	 gates:
 		toNode[numNodes];
 		fromNode[numNodes];
-	} 
+	}
 
 
-	physicalProcess[numPhysicalProcesses]: <physicalProcessName> 
+	physicalProcess[numPhysicalProcesses]: <physicalProcessName>
 				like physicalProcess.iPhysicalProcess {
 	 gates:
 		toNode[numNodes];
 		fromNode[numNodes];
+		groundTruthToNode[numNodes];
 	}
 
 	node[numNodes]:node.Node {
 	 gates:
 		toPhysicalProcess[numPhysicalProcesses];
 		fromPhysicalProcess[numPhysicalProcesses];
+		groundTruthFromPhysicalProcess[numPhysicalProcesses];
 	}
 
  connections:
@@ -61,5 +63,6 @@ network SN {
 	for i = 0..numNodes - 1, for j = 0..numPhysicalProcesses - 1 {
 		node[i].toPhysicalProcess[j] -->  physicalProcess[j].fromNode[i];
 		node[i].fromPhysicalProcess[j] <-- physicalProcess[j].toNode[i];
+		node[i].groundTruthFromPhysicalProcess[j] <-- physicalProcess[j].groundTruthToNode[i];
 	}
 }

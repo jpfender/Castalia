@@ -38,7 +38,7 @@ module CommunicationModule {
 	MAC.toNetworkModule --> Routing.fromMacModule;
 	MAC.toRadioModule --> Radio.fromMacModule;
 	Radio.toMacModule --> MAC.fromRadioModule;
-	
+
 	fromNodeContainerModule --> Radio.fromCommunicationModule;
 	Radio.toCommunicationModule --> toNodeContainerModule;
 
