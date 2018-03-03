@@ -11,35 +11,14 @@ using namespace std;
 
 typedef Eigen::Vector2d Pos;
 
-static int packetsGenerated = 0;
-static int packetsDeliveredToSink = 0;
-
-static int eventsExamined = 0;
-
-static int positives = 0;
-static int truePositives = 0;
-static int falsePositives = 0;
-
-static int negatives = 0;
-static int trueNegatives = 0;
-static int falseNegatives = 0;
-
-static float truePositiveRate = 0.0;
-static float falsePositiveRate = 0.0;
-
-static float sensitivity = 0.0;
-static float specificity = 0.0;
-
-static float precision = 0.0;
-static float recall = 0.0;
-
-static vector<EventInstance> groundTruthEvents;
-static vector<EventInstance> sinkEvents;
+vector<EventInstance> groundTruthEvents;
+vector<EventInstance> sinkEvents;
 
 enum SimpleEventDetectionTimers {
 	REQUEST_SAMPLE = 1,
-	SEND_DATA = 2,
-	FLUSH_BUFFER,
+	SEND_DATA      = 2,
+	FLUSH_BUFFER   = 3,
+	FLUSH_OUTLIERS = 4
 };
 
 class SimpleEventDetection: public VirtualApplication {
@@ -50,7 +29,9 @@ class SimpleEventDetection: public VirtualApplication {
 	double a;
 	int numSources;
 	bool filterOn;
+	bool filterIdeal;
 	bool removeOutliers;
+	bool bufferOutliers;
 
 	int routingLevel;
 	double lastSensedValue;
@@ -61,9 +42,12 @@ class SimpleEventDetection: public VirtualApplication {
 
 	double reportThreshold;
 	int bufferPeriod;
+	int bufferThreshold;
 	int timestampEpsilon;
 	bool isBuffering;
+	bool outliersBuffering;
 	vector<SimpleEventDetectionDataPacket*> buffer;
+	vector<SimpleEventDetectionDataPacket*> outliers;
 
 	simpleSourceInfo *currentOracle;
 	double currSensingDistance;
@@ -75,6 +59,7 @@ class SimpleEventDetection: public VirtualApplication {
 	void handleMessage(cMessage * msg);
 	void handleSensorReading(SensorReadingMessage *);
 	void timerFiredCallback(int);
+	void flushBuffer();
 	vector<EventInstance> addToEventInstanceVector(vector<EventInstance> vec, int ID, simtime_t TS);
 	void filterAndSend(vector<SimpleEventDetectionDataPacket*> candidates);
 	bool multilateration(vector<SimpleEventDetectionDataPacket*> candidates);

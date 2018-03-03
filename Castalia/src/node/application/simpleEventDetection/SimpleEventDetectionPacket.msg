@@ -7,6 +7,8 @@ class ApplicationPacket;
 struct EventInstance {
 	int ID;
 	simtime_t TS;
+	double x;
+	double y;
 }
 
 struct simpleSourceInfo {

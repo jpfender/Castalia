@@ -28,23 +28,14 @@ void SimpleEventDetection::startup()
 
 	setTimer(REQUEST_SAMPLE, maxSampleInterval * randomBackoffIntervalFraction);
 
-	//declareOutput("Packet filtering breakdown");
-
 	declareOutput("True positive rate"); // (TP / P)
 	declareOutput("False positive rate"); // (FP / N)
 
-	declareOutput("ROC");
 	declareOutput("Determinants");
 
-	declareOutput("Sensitivity"); // (TP / (TP+FN))
-	declareOutput("Specificity"); // (TN / (TN+FP))
-	declareOutput("Precision"); // (TP / (TP + FP))
-	declareOutput("Recall"); // (TP / (TP + FN))
-
-	declareOutput("Accuracy"); // ((TP+TN) / (TP+TN+FP+FN))
-
 	declareOutput("Base values");
-	declareOutput("Final values");
+
+	declareOutput("Delay");
 }
 
 void SimpleEventDetection::timerFiredCallback(int index)
@@ -58,32 +49,37 @@ void SimpleEventDetection::timerFiredCallback(int index)
 		}
 
 		case FLUSH_BUFFER:{
-			while (buffer.size()) {
+			flushBuffer();
+			break;
+		}
 
-				SimpleEventDetectionDataPacket *refCandidate;
-				vector<SimpleEventDetectionDataPacket*> candidates;
+		case FLUSH_OUTLIERS:{
+			while (outliers.size()) {
+				SimpleEventDetectionDataPacket *outlierCandidate;
+				vector<SimpleEventDetectionDataPacket*> outlierCandidates;
+				outlierCandidates.clear();
 
-				refCandidate = buffer.back();
-				simtime_t refCandidateTS = refCandidate->getExtraData().timestamp;
-				candidates.push_back(refCandidate);
-				buffer.pop_back();
+				outlierCandidate = outliers.back();
+				simtime_t outlierCandidateTS = outlierCandidate->getExtraData().timestamp;
+				outlierCandidates.push_back(outlierCandidate);
+				outliers.pop_back();
 
 				vector<SimpleEventDetectionDataPacket*>::iterator it;
-				for (it = buffer.begin(); it != buffer.end(); ) {
-					simtime_t currCandidateTS = (*it)->getExtraData().timestamp;
-					if (refCandidateTS - timestampEpsilon <= currCandidateTS
-							&& refCandidateTS + timestampEpsilon >= currCandidateTS) {
-						candidates.push_back(*it);
-						it = buffer.erase(it);
+				for (it = outliers.begin(); it != outliers.end(); ) {
+					simtime_t currOutlierTS = (*it)->getExtraData().timestamp;
+					if (outlierCandidateTS - timestampEpsilon <= currOutlierTS
+							&& outlierCandidateTS + timestampEpsilon >= currOutlierTS) {
+						outlierCandidates.push_back(*it);
+						it = outliers.erase(it);
 					} else {
 						++it;
 					}
 				}
 
-				filterAndSend(candidates);
+				filterAndSend(outlierCandidates);
 			}
 
-			isBuffering = false;
+			outliersBuffering = false;
 			break;
 		}
 	}
@@ -112,8 +108,6 @@ void SimpleEventDetection::fromNetworkLayer(ApplicationPacket
 
 		double nodeX     = theData.locX;
 		double nodeY     = theData.locY;
-
-		packetsDeliveredToSink++;
 
 		trace() << std::setprecision(2) << std::fixed;
 		trace() << "[SINK] Got event report near (" << nodeX << "," << nodeY << ") @" << nodeTS;
@@ -150,6 +144,11 @@ void SimpleEventDetection::fromNetworkLayer(ApplicationPacket
 			}
 			buffer.push_back(rcvPacket->dup());
 
+			if (buffer.size() >= bufferThreshold) {
+				cancelTimer(FLUSH_BUFFER);
+				flushBuffer();
+			}
+
 		} else {
 
 			toNetworkLayer(rcvPacket->dup(), SINK_NETWORK_ADDRESS);
@@ -185,6 +184,9 @@ void SimpleEventDetection::handleOracle(SimpleEDPhysicalProcessMessage * oracleM
 {
 
 	int i;
+	bool unique = true;
+	vector<EventInstance> uniqueEvents;
+	vector<EventInstance>::iterator it;
 
 	currentOracle = new simpleSourceInfo[numSources];
 	for (i = 0; i < numSources; ++i) {
@@ -195,12 +197,48 @@ void SimpleEventDetection::handleOracle(SimpleEDPhysicalProcessMessage * oracleM
 		currentOracle[i].heard 			 = oracleMsg->getSources(i).heard;
 
 		if (currentOracle[i].ID != -1 && currentOracle[i].heard) {
-			groundTruthEvents
-				= addToEventInstanceVector(groundTruthEvents,
-						currentOracle[i].ID,
-						currentOracle[i].timestamp);
+
+			EventInstance event;
+			event.ID = currentOracle[i].ID;
+			event.TS = currentOracle[i].timestamp;
+			event.x = currentOracle[i].x;
+			event.y = currentOracle[i].y;
+
+			if (filterOn) {
+				unique = true;
+				for (it = uniqueEvents.begin(); it != uniqueEvents.end(); it++) {
+					double distance = sqrt(((*it).x - event.x) * ((*it).x
+								- event.x) + ((*it).y - event.y) * ((*it).y
+									- event.y));
+					if (distance < oracleMsg->getSensingDistance()) {
+						unique = false;
+						break;
+					}
+				}
+
+				if (unique) {
+					uniqueEvents.push_back(event);
+				}
+			} else {
+				uniqueEvents.push_back(event);
+			}
 		}
 	}
+
+	int sz = groundTruthEvents.size();
+	for (it = uniqueEvents.begin(); it != uniqueEvents.end(); it++) {
+		trace() << "[GROUNDTRUTH] Checking whether to add #" <<
+			(*it).ID << " @" << (*it).TS << " to vector...";
+		groundTruthEvents
+			= addToEventInstanceVector(groundTruthEvents,
+					(*it).ID, (*it).TS);
+	}
+	if (groundTruthEvents.size() > sz) {
+		trace() << "\tYES";
+	} else {
+		trace() << "\tNO";
+	}
+
 	currSensingDistance = oracleMsg->getSensingDistance();
 }
 
@@ -236,8 +274,42 @@ void SimpleEventDetection::handleSensorReading(SensorReadingMessage * rcvReading
 
 	toNetworkLayer(packet2Net, SINK_NETWORK_ADDRESS);
 	collectOutput("Base values", "Packets sent");
-	packetsGenerated++;
 	sentOnce = true;
+}
+
+/**
+ * FLush the current event report buffer by calling the filter on all
+ * event reports in it.
+ */
+void SimpleEventDetection::flushBuffer()
+{
+	while (buffer.size()) {
+
+		SimpleEventDetectionDataPacket *refCandidate;
+		vector<SimpleEventDetectionDataPacket*> candidates;
+		candidates.clear();
+
+		refCandidate = buffer.back();
+		simtime_t refCandidateTS = refCandidate->getExtraData().timestamp;
+		candidates.push_back(refCandidate);
+		buffer.pop_back();
+
+		vector<SimpleEventDetectionDataPacket*>::iterator it;
+		for (it = buffer.begin(); it != buffer.end(); ) {
+			simtime_t currCandidateTS = (*it)->getExtraData().timestamp;
+			if (refCandidateTS - timestampEpsilon <= currCandidateTS
+					&& refCandidateTS + timestampEpsilon >= currCandidateTS) {
+				candidates.push_back(*it);
+				it = buffer.erase(it);
+			} else {
+				++it;
+			}
+		}
+
+		filterAndSend(candidates);
+	}
+
+	isBuffering = false;
 }
 
 /**
@@ -249,7 +321,7 @@ vector<EventInstance> SimpleEventDetection::addToEventInstanceVector(vector<Even
 {
 	vector<EventInstance>::iterator it;
 	for (it = vec.begin(); it != vec.end(); it++) {
-		if ((*it).ID == ID && (*it).TS - 2.5 <= TS && (*it).TS + 2.5 >= TS) {
+		if ((*it).ID == ID && (*it).TS - timestampEpsilon <= TS && (*it).TS + timestampEpsilon >= TS) {
 			// We already have a recorded event with the same source ID
 			// at roughly the same time; discard
 			return vec;
@@ -302,6 +374,7 @@ void SimpleEventDetection::filterAndSend(vector<SimpleEventDetectionDataPacket*>
 						toNetworkLayer(*it, SINK_NETWORK_ADDRESS);
 						collectOutput("Base values", "Packets sent");
 					}
+					candidates.clear();
 					// Everything sent, nothing more to do
 					return;
 				}
@@ -344,23 +417,79 @@ void SimpleEventDetection::filterAndSend(vector<SimpleEventDetectionDataPacket*>
 					theData.locX << "," << theData.locY << ") @" <<
 					theData.timestamp;
 
-				// Send out outlier and delete it from candidates
-				toNetworkLayer(curr_candidate, SINK_NETWORK_ADDRESS);
-				collectOutput("Base values", "Packets sent");
-				trace() << "[OUTLIER] Deletion index: " << cand_idx;
+				// Handle outliers
+				if (bufferOutliers) {
+					// Move outlier to outliers buffer
+					if (!outliersBuffering) {
+						setTimer(FLUSH_OUTLIERS, bufferPeriod);
+						outliersBuffering = true;
+					}
+
+					outliers.push_back(curr_candidate);
+				} else {
+					// Send out outlier directly
+					toNetworkLayer(curr_candidate, SINK_NETWORK_ADDRESS);
+					collectOutput("Base values", "Packets sent");
+				}
+
+				// Delete outlier from candidates
 				candidates.erase(candidates.begin() + cand_idx);
+
 				trace() << "[OUTLIER] Current candidates:";
 				for (it = candidates.begin(); it != candidates.end(); it++) {
 					theData = (*it)->getExtraData();
 					trace() << "\t#" << theData.nodeID << " (" << theData.locX
 						<< "," << theData.locY << ") @" << theData.timestamp;
 				}
+
 			} else {
+
 				trace() << "[OUTLIER] Multilateration succeeded";
+
 				// Multilateration succeeded; just send out one
 				// representative and return
-				toNetworkLayer(candidates.back(), SINK_NETWORK_ADDRESS);
+				if (filterIdeal) {
+					trace() << "[FILTER] Finding best representative";
+
+					int maxSourceLen = -1;
+					SimpleEventDetectionDataPacket* bestRep;
+
+					for	(it = candidates.begin(); it != candidates.end(); it++) {
+						int i;
+						int currSourceLen = 0;
+
+						theData = (*it)->getExtraData();
+						trace() << "[FILTER] " << theData.nodeID <<
+							" @ (" << theData.locX << "," <<
+							theData.locY << ") can hear the following sources:";
+
+						for (i = 0; i < numSources; i++) {
+							if ((*it)->getSources(i).heard) {
+								trace() << "\t" <<
+									(*it)->getSources(i).ID << " @(" <<
+									(*it)->getSources(i).x << "," <<
+									(*it)->getSources(i).y << ")";
+								currSourceLen++;
+							}
+						}
+
+						if (currSourceLen > maxSourceLen) {
+							bestRep = *it;
+							maxSourceLen = currSourceLen;
+						}
+					}
+
+					trace() << "[FILTER] Best representative: " << bestRep->getExtraData().nodeID;
+					toNetworkLayer(bestRep, SINK_NETWORK_ADDRESS);
+
+				} else {
+
+					toNetworkLayer(candidates.back(), SINK_NETWORK_ADDRESS);
+
+				}
+
 				collectOutput("Base values", "Packets sent");
+				candidates.clear();
 				return;
 			}
 		}
@@ -377,21 +506,25 @@ void SimpleEventDetection::filterAndSend(vector<SimpleEventDetectionDataPacket*>
 bool SimpleEventDetection::multilateration(vector<SimpleEventDetectionDataPacket*> candidates)
 {
 	int i;
-	bool isSameEvent;
+	bool isSameEvent = false;
 
 	if (candidates.size() < 3) {
 		return false;
 	}
 
-	eventsExamined++;
 	collectOutput("Base values", "Events");
 
+	simpleSourceInfo currSource;
 	vector<int> refSourceIDs;
+	vector<simpleSourceInfo> sharedSources, sharedSourcesNew;
 
+	trace() << "[FILTER] Reference sources:";
 	for (i = 0; i < numSources; i++) {
-		simpleSourceInfo currSource = candidates.front()->getSources(i);
+		currSource = candidates.front()->getSources(i);
 		if (currSource.ID != -1) {
+			trace() << "\t" << currSource.ID << "@ (" << currSource.x << "," << currSource.y << ")";
 			refSourceIDs.push_back(currSource.ID);
+			sharedSources.push_back(currSource);
 		}
 	}
 
@@ -401,40 +534,60 @@ bool SimpleEventDetection::multilateration(vector<SimpleEventDetectionDataPacket
 	vector<SimpleEventDetectionDataPacket*>::iterator it;
 	for (it = candidates.begin(); it != candidates.end(); it++) {
 
+		trace() << "[FILTER] Candidate " << (*it)->getExtraData().nodeID
+			<< " @(" << (*it)->getExtraData().locX << "," <<
+			(*it)->getExtraData().locY << ") has sources:";
+
 		double beaconX    = (*it)->getExtraData().locX;
 		double beaconY    = (*it)->getExtraData().locY;
 		double beaconDist = (*it)->getSensingDistance();
 
-		simpleSourceInfo sources[numSources];
+		vector<simpleSourceInfo> candidateSources;
 
-		isSameEvent = false;
 		for (i = 0; i < numSources; ++i) {
 
-			sources[i] = (*it)->getSources(i);
+			currSource = (*it)->getSources(i);
 
-			vector<int>::iterator sit;
-			for (sit = refSourceIDs.begin(); sit != refSourceIDs.end(); sit++) {
-				if (sources[i].ID == (*sit)) {
-					isSameEvent = true;
-					break;
+			if (currSource.ID != -1) {
+				trace() << "\t" << currSource.ID << " @ (" << currSource.x << "," << currSource.y << ")";
+				candidateSources.push_back(currSource);
+			}
+		}
+
+		sharedSourcesNew.clear();
+		vector<simpleSourceInfo>::iterator cit;
+		trace() << "[FILTER] Shared sources:";
+		for (cit = candidateSources.begin(); cit != candidateSources.end(); cit++) {
+			vector<simpleSourceInfo>::iterator rit;
+			for (rit = sharedSources.begin(); rit != sharedSources.end(); rit++) {
+				if ((*cit).ID == (*rit).ID) {
+					trace() << "\t" << (*cit).ID << " @ (" << (*cit).x << "," << (*cit).y << ")";
+					sharedSourcesNew.push_back(*rit);
 				}
 			}
 		}
+		sharedSources = sharedSourcesNew;
 
 		beacons.push_back(PosAndDistance(Pos(beaconX, beaconY), beaconDist));
 	}
 
+	if (sharedSources.size()) {
+		trace() << "[FILTER] Is same event";
+		isSameEvent = true;
+	} else {
+		trace() << "[FILTER] Is not same event";
+	}
+
+	sharedSources.clear();
+	sharedSourcesNew.clear();
+
 	if (filterIdeal) {
 		if (isSameEvent) {
-			positives++;
 			collectOutput("Base values", "Positives");
-			truePositives++;
 			collectOutput("Base values", "True positives");
 			return true;
 		} else {
-			negatives++;
 			collectOutput("Base values", "Negatives");
-			trueNegatives++;
 			collectOutput("Base values", "True negatives");
 			return false;
 		}
@@ -484,14 +637,10 @@ bool SimpleEventDetection::multilateration(vector<SimpleEventDetectionDataPacket
 
 		if (distance > sensingDist) {
 			if (isSameEvent) {
-				positives++;
 				collectOutput("Base values", "Positives");
-				falseNegatives++;
 				collectOutput("Base values", "False negatives");
 			} else {
-				negatives++;
 				collectOutput("Base values", "Negatives");
-				trueNegatives++;
 				collectOutput("Base values", "True negatives");
 			}
 			return false;
@@ -499,14 +648,10 @@ bool SimpleEventDetection::multilateration(vector<SimpleEventDetectionDataPacket
 	}
 
 	if (isSameEvent) {
-		positives++;
 		collectOutput("Base values", "Positives");
-		truePositives++;
 		collectOutput("Base values", "True positives");
 	} else {
-		negatives++;
 		collectOutput("Base values", "Negatives");
-		falsePositives++;
 		collectOutput("Base values", "False positives");
 	}
 	return true;
@@ -519,69 +664,16 @@ double SimpleEventDetection::norm(Pos p)
 
 void SimpleEventDetection::finishSpecific()
 {
-	//if (packetsGenerated > 0) {
-		//collectOutput("Packet filtering breakdown", "Packets generated", packetsGenerated);
-		//collectOutput("Packet filtering breakdown", "Packets delivered to sink", packetsDeliveredToSink);
-	//}
-
 	if (isSink && groundTruthEvents.size() > 0) {
-		float eventDeliveryRatio = (float) sinkEvents.size() / groundTruthEvents.size();
+		double eventDeliveryRatio = min(1.0, (double) sinkEvents.size() / groundTruthEvents.size());
 		trace() << "[OUTPUT] Event delivery ratio: " << eventDeliveryRatio;
 		collectOutput("Determinants", "EDR", eventDeliveryRatio);
-		sinkEvents.clear();
-		groundTruthEvents.clear();
 	}
 
-	if (filterOn) {
+	if (isSink) {
 
-		collectOutput("Final values", "Positives", positives);
-		collectOutput("Final values", "Negatives", negatives);
-		collectOutput("Final values", "True positives", truePositives);
-		collectOutput("Final values", "True negatives", trueNegatives);
-		collectOutput("Final values", "False positives", falsePositives);
-		collectOutput("Final values", "False negatives", falseNegatives);
+		sinkEvents.clear();
+		groundTruthEvents.clear();
 
-		if (positives + negatives > 37) { //minimum sample size for 95% confidence and 0.1 MOE
-
-			if (positives > 0) {
-				truePositiveRate = (float) truePositives / positives;
-				sensitivity = recall = truePositiveRate;
-				collectOutput("Determinants", "True positive rate", truePositiveRate);
-			}
-
-			if (negatives > 0) {
-				falsePositiveRate = (float) falsePositives / negatives;
-				collectOutput("Determinants", "False positive rate", falsePositiveRate);
-			}
-
-			if (trueNegatives + falsePositives > 0) {
-				specificity = (float) trueNegatives / (trueNegatives
-						+ falsePositives);
-				collectOutput("Determinants", "Specificity", specificity);
-			}
-
-			if (truePositives + falsePositives > 0) {
-				precision = (float) truePositives / (truePositives + falsePositives);
-				collectOutput("Determinants", "Precision", precision);
-			}
-
-			//collectOutput("Determinants", "Youden index", sensitivity + specificity - 1);
-
-			//if (precision + recall > 0) {
-				//float f1  = 2 	 * ((precision * recall) / (        precision  + recall));
-				//float f2  = 5    * ((precision * recall) / ((4    * precision) + recall));
-				//float f05 = 1.25 * ((precision * recall) / ((1.25 * precision) + recall));
-				//collectOutput("Determinants", "F1 score", f1);
-				//collectOutput("Determinants", "F2 score", f2);
-				//collectOutput("Determinants", "F0.5 score", f05);
-			//}
-
-			if (truePositives + trueNegatives + falsePositives + falseNegatives > 0) {
-				collectOutput("Determinants", "Accuracy", (float)
-						(truePositives + trueNegatives) / (truePositives
-							+ trueNegatives + falsePositives
-							+ falseNegatives));
-			}
-		}
 	}
 }

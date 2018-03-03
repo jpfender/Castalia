@@ -16,11 +16,14 @@ simple SimpleEventDetection like node.application.iApplication {
 	double attenuation_exp_a = default (1.0);	// attenuation exponent (a)
 	bool isSink = default (false);
 	bool filterOn = default (true);
-	bool removeOutliers = default (false);
+	bool filterIdeal = default (false);
+	bool removeOutliers = default (true);
+	bool bufferOutliers = default (false);
 
 	int numSources = default(1);
 	double reportThreshold = default(1);
 	int bufferPeriod = default(10000); // how long to hold received packets in buffer (msec)
+	int bufferThreshold = default(32); // cutoff point at which the buffer automatically gets flushed
 	int timestampEpsilon = default(1000); // time window for events to be treated as simultaneous (msec)
 
  gates:
