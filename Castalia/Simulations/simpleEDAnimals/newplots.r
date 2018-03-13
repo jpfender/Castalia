@@ -56,7 +56,7 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 
 pdf("determinants.pdf", family="CM Roman")
 
-runs <- read.table("180306-153152-BaseValues-filterOn.txt", sep="\t", header=TRUE)
+runs <- read.table("180312-160342-BaseValues-filterOn.txt", sep="\t", header=TRUE)
 runs <- subset(runs, EVENTS > 37)
 
 numsources.f <- factor(runs$NUMSOURCES, levels=c(2,3,4,5))
@@ -97,7 +97,7 @@ ggplot(runs, aes(x=numsources.f, y = runs$TRUE_NEGATIVES / runs$NEGATIVES, fill 
     scale_fill_discrete("Sensing range") +
     theme(plot.title = element_text(hjust=0.5), legend.position = "top", axis.text.x = element_text(size=16), axis.title.x = element_text(size=24), axis.title.y = element_text(size=24), axis.text.y = element_text(size=16), legend.title = element_text(size=24), legend.text = element_text(size=24))
 
-runs.sent <- read.table("180306-153152-Packets.txt", sep="\t", header=TRUE)
+runs.sent <- read.table("180312-160342-Packets.txt", sep="\t", header=TRUE)
 
 numsources.sent.f <- factor(runs.sent$NUMSOURCES, levels=c(2,3,4,5))
 sensdist.sent.f <- factor(runs.sent$SENSINGDISTANCE, levels=c(30,40,50))
@@ -112,7 +112,7 @@ sent = ggplot(runs.sent, aes(x=sensdist.sent.f, y = runs.sent$PACKETS_SENT, fill
         theme(plot.title = element_text(hjust=0.5), legend.position = "top", axis.text.x = element_text(size=16), axis.title.x = element_text(size=24), axis.title.y = element_text(size=24), axis.text.y = element_text(size=16), legend.title = element_text(size=24), legend.text = element_text(size=24))
 sent
 
-runs.edr <- read.table("180306-153152-Determinants.txt", sep="\t", header=TRUE)
+runs.edr <- read.table("180312-160342-Determinants.txt", sep="\t", header=TRUE)
 mlt <- melt(runs.edr, measure.vars=c("SENSDISTANCE30", "SENSDISTANCE40", "SENSDISTANCE50"))
 
 numsources.edr.f <- factor(mlt$NUMSOURCES, levels=c(2,3,4,5))
@@ -128,7 +128,7 @@ edr = ggplot(mlt, aes(x=sensdist.edr.f, y = mlt$value, fill = filter.edr.f)) +
         theme(plot.title = element_text(hjust=0.5), legend.position = "top", axis.text.x = element_text(size=16), axis.title.x = element_text(size=24), axis.title.y = element_text(size=24), axis.text.y = element_text(size=16), legend.title = element_text(size=24), legend.text = element_text(size=24))
 edr
 
-runs.fail <- read.table("180306-153152-RX.txt", sep="\t", header=TRUE)
+runs.fail <- read.table("180312-160342-RX.txt", sep="\t", header=TRUE)
 
 numsources.fail.f <- factor(runs.fail$NUMSOURCES, levels=c(2,3,4,5))
 sensdist.fail.f <- factor(runs.fail$SENSINGDISTANCE, levels=c(30,40,50))

@@ -7,7 +7,7 @@ library(reshape2)
 
 pdf("delay_energy.pdf", family="CM Roman")
 
-runs.delay <- read.table("180306-153152-DELAY.txt", sep="\t", header=TRUE)
+runs.delay <- read.table("180312-160342-DELAY.txt", sep="\t", header=TRUE)
 
 mlt <- melt(runs.delay, measure.vars=c("SENSDISTANCE30", "SENSDISTANCE40", "SENSDISTANCE50"))
 
@@ -25,7 +25,7 @@ delay = ggplot(mlt, aes(x=sensdist.delay.f, y = mlt$value, fill = filter.delay.f
         theme(plot.title = element_text(hjust=0.5), legend.position = "top", axis.text.x = element_text(size=16), axis.title.x = element_text(size=24), axis.title.y = element_text(size=24), axis.text.y = element_text(size=16), legend.title = element_text(size=24), legend.text = element_text(size=24))
 delay
 
-runs.energy <- read.table("180306-153152-ENERGY.txt", sep="\t", header=TRUE)
+runs.energy <- read.table("180312-160342-ENERGY.txt", sep="\t", header=TRUE)
 
 mlt <- melt(runs.energy, measure.vars=c("SENSDISTANCE30", "SENSDISTANCE40", "SENSDISTANCE50"))
 
@@ -46,7 +46,7 @@ energy = ggplot(mlt, aes(x=sensdist.energy.f, y = mlt$value, fill = filter.energ
 energy
 print("Done.")
 
-runs.lifetime <- read.table("180306-153152-LIFETIME.txt", sep="\t", header=TRUE)
+runs.lifetime <- read.table("180312-160342-LIFETIME.txt", sep="\t", header=TRUE)
 
 mlt <- melt(runs.lifetime, measure.vars=c("SENSDISTANCE30", "SENSDISTANCE40", "SENSDISTANCE50"))
 
