@@ -11,6 +11,9 @@ using namespace std;
 
 typedef Eigen::Vector2d Pos;
 
+static int eventsDelivered = 0;
+static double accumDelay = 0.0;
+
 vector<EventInstance> groundTruthEvents;
 vector<EventInstance> sinkEvents;
 

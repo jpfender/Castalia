@@ -26,6 +26,8 @@ void SimpleEventDetection::startup()
 
 	numSources = par("numSources");
 
+	eventsDelivered = 0;
+
 	setTimer(REQUEST_SAMPLE, maxSampleInterval * randomBackoffIntervalFraction);
 
 	declareOutput("True positive rate"); // (TP / P)
@@ -122,6 +124,8 @@ void SimpleEventDetection::fromNetworkLayer(ApplicationPacket
 				if (sources[i].heard) {
 					sinkEvents = addToEventInstanceVector(sinkEvents,
 							sources[i].ID, sources[i].timestamp);
+					accumDelay += SIMTIME_DBL(simTime() - sources[i].timestamp);
+					eventsDelivered++;
 				}
 			}
 		}
@@ -674,6 +678,13 @@ void SimpleEventDetection::finishSpecific()
 
 		sinkEvents.clear();
 		groundTruthEvents.clear();
+
+		if (eventsDelivered > 0) {
+			collectOutput("Delay", "", accumDelay / eventsDelivered);
+		}
+
+		accumDelay = 0;
+		eventsDelivered = 0;
 
 	}
 }

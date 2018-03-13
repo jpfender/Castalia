@@ -84,6 +84,7 @@ bool SimpleEDPhysicalProcess::distanceCutoff(const double &x_coo, const
     }
 
     return retVal;
+
 }
 
 sourceOracle *SimpleEDPhysicalProcess::oracle(const double &x_coo, const
