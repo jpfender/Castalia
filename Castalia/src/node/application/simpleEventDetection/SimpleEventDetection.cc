@@ -111,15 +111,8 @@ void SimpleEventDetection::fromNetworkLayer(ApplicationPacket
 		double nodeX     = theData.locX;
 		double nodeY     = theData.locY;
 
-		trace() << std::setprecision(2) << std::fixed;
-		trace() << "[SINK] Got event report near (" << nodeX << "," << nodeY << ") @" << nodeTS;
-		trace() << std::setprecision(2) << std::fixed;
-		trace() << "[ORACLE] Actual event(s):";
 		for (i = 0; i < numSources; ++i) {
 			if (sources[i].ID != -1) {
-				trace() << "\t#" << sources[i].ID << ": (" <<
-					sources[i].x << "," << sources[i].y << ") @" <<
-					sources[i].timestamp << " heard: " << sources[i].heard;
 
 				if (sources[i].heard) {
 					sinkEvents = addToEventInstanceVector(sinkEvents,
@@ -229,18 +222,10 @@ void SimpleEventDetection::handleOracle(SimpleEDPhysicalProcessMessage * oracleM
 		}
 	}
 
-	int sz = groundTruthEvents.size();
 	for (it = uniqueEvents.begin(); it != uniqueEvents.end(); it++) {
-		trace() << "[GROUNDTRUTH] Checking whether to add #" <<
-			(*it).ID << " @" << (*it).TS << " to vector...";
 		groundTruthEvents
 			= addToEventInstanceVector(groundTruthEvents,
 					(*it).ID, (*it).TS);
-	}
-	if (groundTruthEvents.size() > sz) {
-		trace() << "\tYES";
-	} else {
-		trace() << "\tNO";
 	}
 
 	currSensingDistance = oracleMsg->getSensingDistance();
@@ -362,15 +347,11 @@ void SimpleEventDetection::filterAndSend(vector<SimpleEventDetectionDataPacket*>
 			collectOutput("Base values", "Packets sent");
 		}
 	} else {
-		trace() << "[OUTLIER] Current candidates:";
 		for (it = candidates.begin(); it != candidates.end(); it++) {
 			theData = (*it)->getExtraData();
-			trace() << "\t#" << theData.nodeID << " (" << theData.locX
-				<< "," << theData.locY << ") @" << theData.timestamp;
 		}
 		while (candidates.size() >= 3) {
 			if (!multilateration(candidates)) {
-				trace() << "[OUTLIER] Multilateration failed";
 
 				if (candidates.size() == 3) {
 					// Send all candidates
@@ -392,8 +373,6 @@ void SimpleEventDetection::filterAndSend(vector<SimpleEventDetectionDataPacket*>
 				}
 				meanX /= candidates.size();
 				meanY /= candidates.size();
-				trace() << "[OUTLIER] Mean candidate position: (" <<
-					meanX << "," << meanY << ")";
 
 				// Find point furthest from mean position
 				SimpleEventDetectionDataPacket *curr_candidate = candidates.front();
@@ -416,10 +395,6 @@ void SimpleEventDetection::filterAndSend(vector<SimpleEventDetectionDataPacket*>
 					idx++;
 				}
 				theData = curr_candidate->getExtraData();
-				trace() << "[OUTLIER] Candidate identified for deletion:";
-				trace() << "\t#" << theData.nodeID << " (" <<
-					theData.locX << "," << theData.locY << ") @" <<
-					theData.timestamp;
 
 				// Handle outliers
 				if (bufferOutliers) {
@@ -439,21 +414,16 @@ void SimpleEventDetection::filterAndSend(vector<SimpleEventDetectionDataPacket*>
 				// Delete outlier from candidates
 				candidates.erase(candidates.begin() + cand_idx);
 
-				trace() << "[OUTLIER] Current candidates:";
 				for (it = candidates.begin(); it != candidates.end(); it++) {
 					theData = (*it)->getExtraData();
-					trace() << "\t#" << theData.nodeID << " (" << theData.locX
-						<< "," << theData.locY << ") @" << theData.timestamp;
 				}
 
 			} else {
 
-				trace() << "[OUTLIER] Multilateration succeeded";
 
 				// Multilateration succeeded; just send out one
 				// representative and return
 				if (filterIdeal) {
-					trace() << "[FILTER] Finding best representative";
 
 					int maxSourceLen = -1;
 					SimpleEventDetectionDataPacket* bestRep;
@@ -463,16 +433,9 @@ void SimpleEventDetection::filterAndSend(vector<SimpleEventDetectionDataPacket*>
 						int currSourceLen = 0;
 
 						theData = (*it)->getExtraData();
-						trace() << "[FILTER] " << theData.nodeID <<
-							" @ (" << theData.locX << "," <<
-							theData.locY << ") can hear the following sources:";
 
 						for (i = 0; i < numSources; i++) {
 							if ((*it)->getSources(i).heard) {
-								trace() << "\t" <<
-									(*it)->getSources(i).ID << " @(" <<
-									(*it)->getSources(i).x << "," <<
-									(*it)->getSources(i).y << ")";
 								currSourceLen++;
 							}
 						}
@@ -483,7 +446,6 @@ void SimpleEventDetection::filterAndSend(vector<SimpleEventDetectionDataPacket*>
 						}
 					}
 
-					trace() << "[FILTER] Best representative: " << bestRep->getExtraData().nodeID;
 					toNetworkLayer(bestRep, SINK_NETWORK_ADDRESS);
 
 				} else {
@@ -497,7 +459,6 @@ void SimpleEventDetection::filterAndSend(vector<SimpleEventDetectionDataPacket*>
 				return;
 			}
 		}
-		trace() << "[OUTLIER] Fewer than three candidates";
 
 		// candidates size can't be reduced; just send out everything
 		for (it = candidates.begin(); it != candidates.end(); it++) {
@@ -522,11 +483,9 @@ bool SimpleEventDetection::multilateration(vector<SimpleEventDetectionDataPacket
 	vector<int> refSourceIDs;
 	vector<simpleSourceInfo> sharedSources, sharedSourcesNew;
 
-	trace() << "[FILTER] Reference sources:";
 	for (i = 0; i < numSources; i++) {
 		currSource = candidates.front()->getSources(i);
 		if (currSource.ID != -1) {
-			trace() << "\t" << currSource.ID << "@ (" << currSource.x << "," << currSource.y << ")";
 			refSourceIDs.push_back(currSource.ID);
 			sharedSources.push_back(currSource);
 		}
@@ -538,9 +497,6 @@ bool SimpleEventDetection::multilateration(vector<SimpleEventDetectionDataPacket
 	vector<SimpleEventDetectionDataPacket*>::iterator it;
 	for (it = candidates.begin(); it != candidates.end(); it++) {
 
-		trace() << "[FILTER] Candidate " << (*it)->getExtraData().nodeID
-			<< " @(" << (*it)->getExtraData().locX << "," <<
-			(*it)->getExtraData().locY << ") has sources:";
 
 		double beaconX    = (*it)->getExtraData().locX;
 		double beaconY    = (*it)->getExtraData().locY;
@@ -553,19 +509,16 @@ bool SimpleEventDetection::multilateration(vector<SimpleEventDetectionDataPacket
 			currSource = (*it)->getSources(i);
 
 			if (currSource.ID != -1) {
-				trace() << "\t" << currSource.ID << " @ (" << currSource.x << "," << currSource.y << ")";
 				candidateSources.push_back(currSource);
 			}
 		}
 
 		sharedSourcesNew.clear();
 		vector<simpleSourceInfo>::iterator cit;
-		trace() << "[FILTER] Shared sources:";
 		for (cit = candidateSources.begin(); cit != candidateSources.end(); cit++) {
 			vector<simpleSourceInfo>::iterator rit;
 			for (rit = sharedSources.begin(); rit != sharedSources.end(); rit++) {
 				if ((*cit).ID == (*rit).ID) {
-					trace() << "\t" << (*cit).ID << " @ (" << (*cit).x << "," << (*cit).y << ")";
 					sharedSourcesNew.push_back(*rit);
 				}
 			}
@@ -575,12 +528,6 @@ bool SimpleEventDetection::multilateration(vector<SimpleEventDetectionDataPacket
 		beacons.push_back(PosAndDistance(Pos(beaconX, beaconY), beaconDist));
 	}
 
-	if (sharedSources.size()) {
-		trace() << "[FILTER] Is same event";
-		isSameEvent = true;
-	} else {
-		trace() << "[FILTER] Is not same event";
-	}
 
 	sharedSources.clear();
 	sharedSourcesNew.clear();

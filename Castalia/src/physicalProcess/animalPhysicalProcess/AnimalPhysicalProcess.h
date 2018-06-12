@@ -8,9 +8,9 @@
 #define P_RUN_WALK      0.5
 #define P_WALK_GRAZE    0.66
 
-#define GRAZING_SPEED   0.017
-#define WALKING_SPEED   0.0723
-#define RUNNING_SPEED   0.155
+#define GRAZING_SPEED   1.7
+#define WALKING_SPEED   7.23
+#define RUNNING_SPEED   15.5
 
 #include "CustomizablePhysicalProcess.h"
 #include "SimpleEDPhysicalProcessMessage_m.h"
